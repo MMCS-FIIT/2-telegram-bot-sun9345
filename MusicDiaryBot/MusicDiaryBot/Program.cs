@@ -36,7 +36,34 @@ namespace MusicDiaryBot
             var chatId = update.Message.Chat.Id; // айди для чата с пользователем
             Console.WriteLine($"Получено сообщение от {chatId}: {text}");
 
-            await client.SendMessage(chatId, $"Ты написал: {text}", cancellationToken: ct); // отправка сообщений
+            switch (text)
+            {
+                case "/start":
+                    await client.SendMessage(chatId,
+                        "--- Добро пожаловать в Музыкальный дневник! ---\n\n" +
+                        "Ты можешь добавить свои любимые треки в библиотеку, ставить им оценки и получать рекомендации.\n\n" +
+                        "/help чтобы увидеть список команд.",
+                        cancellationToken: ct);
+                    break;
+
+                case "/help":
+                    await client.SendMessage(chatId,
+                        "--- Список команд: ---\n\n" +
+                        "/add — добавить трек в библиотеку\n" +
+                        "/list — посмотреть свою библиотеку\n" +
+                        "/stats — статистика по библиотеке\n" +
+                        "/recommend — получить рекомендации\n" +
+                        "/help — список команд",
+                        cancellationToken: ct);
+                    break;
+
+                default:
+                    await client.SendMessage(chatId,
+                        "Нет такой команды:(\n\n" +
+                        "Напиши /help чтобы увидеть список доступных команд.",
+                        cancellationToken: ct);
+                    break;
+            }
         }
 
         static Task HandleErrorAsync(ITelegramBotClient client, Exception exception, CancellationToken ct) // хендлинг ошибок
