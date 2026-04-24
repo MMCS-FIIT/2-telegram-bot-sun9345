@@ -35,7 +35,7 @@ namespace MusicDiaryBot
             if (update.Message == null || update.Message.Text == null) return; // проверка на null в сообщении
             string text = update.Message.Text;
 
-            var chatId = update.Message.Chat.Id; // айди для чата с пользователем
+            long chatId = update.Message.Chat.Id; // айди для чата с пользователем
             Console.WriteLine($"Получено сообщение от {chatId}: {text}");
 
             if (!userStates.ContainsKey(chatId)) // создание состояния для пользователя в словаре
