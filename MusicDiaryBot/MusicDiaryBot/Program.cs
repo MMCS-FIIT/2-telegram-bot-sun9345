@@ -35,10 +35,19 @@ namespace MusicDiaryBot
 
         static async Task HandleUpdateAsync(ITelegramBotClient client, Update update, CancellationToken ct) //хендлинг событий
         {
-            if (update.Message == null || update.Message.Text == null) return; // проверка на null в сообщении
-            string text = update.Message.Text;
+            if (update.Message == null) return; // проверка на null в сообщении
 
             long chatId = update.Message.Chat.Id; // айди для чата с пользователем
+
+
+            if (update.Message.Text == null)
+            {
+                await HandleNonTextMessage(client, update.Message, chatId, ct);
+                return;
+            }
+            
+            string text = update.Message.Text;
+
             Console.WriteLine($"Получено сообщение от {chatId}: {text}");
 
             if (!userStates.ContainsKey(chatId)) // создание состояния для пользователя в словаре
@@ -59,8 +68,9 @@ namespace MusicDiaryBot
                     case "/start":
                         await client.SendMessage(chatId,
                             "--- Добро пожаловать в Музыкальный дневник! ---\n\n" +
-                            "Ты можешь добавить свои любимые треки в библиотеку, чтобы получать рекомендации.\n\n" +
-                            "/help чтобы увидеть список команд.",
+                            "Ты можешь добавить свои любимые треки в библиотеку, чтобы получать рекомендации\n\n" +
+                            "Добавить треки можно через /add или просто пришли мне mp3 файл!" +
+                            "/help чтобы увидеть список команд",
                             cancellationToken: ct);
                         break;
 
@@ -125,6 +135,8 @@ namespace MusicDiaryBot
                         await client.SendMessage(chatId, recommendations, cancellationToken: ct);
                         break;
 
+                        
+
                     default:
                         await client.SendMessage(chatId,
                             "Нет такой команды:(\n\n" +
@@ -143,6 +155,41 @@ namespace MusicDiaryBot
 
                 if (userStates.ContainsKey(chatId))
                     userStates[chatId].State = DialogState.None;
+            }
+        }
+
+        static async Task HandleNonTextMessage(ITelegramBotClient client, Message message, long chatId, CancellationToken ct)
+        {
+            if (message.Type == MessageType.Audio)
+            {
+                Console.WriteLine("Прислан аудиофайл!!");
+
+                string? artist = message.Audio?.Performer;
+                string? title = message.Audio?.Title;
+
+                if (title != null && artist != null)
+                {
+                    libraryService.AddTrack(chatId, new TrackEntry(artist, title));
+
+                    await client.SendMessage(chatId,
+                            $"✅ Трек добавлен!\n\n" +
+                            $"{artist}\n" +
+                            $"{title}",
+                            cancellationToken: ct);
+                }
+                else
+                {
+                    await client.SendMessage(chatId,
+                        "Не удалось прочитать теги трека.. Ты можешь добавить его вручную командой /add",
+                        cancellationToken: ct);
+                }
+            }
+            else
+            {
+                Console.WriteLine("Не текстовое соо");
+                await client.SendMessage(chatId,
+                        "Я могу распознать только текст и аудиофайлы :(\nПосмотреть команды - /help",
+                        cancellationToken: ct);
             }
         }
         static async Task HandleAddDialog(ITelegramBotClient client, long chatId, string text, UserState state, CancellationToken ct)
