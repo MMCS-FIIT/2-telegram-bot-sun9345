@@ -135,8 +135,6 @@ namespace MusicDiaryBot
                         await client.SendMessage(chatId, recommendations, cancellationToken: ct);
                         break;
 
-                        
-
                     default:
                         await client.SendMessage(chatId,
                             "Нет такой команды:(\n\n" +

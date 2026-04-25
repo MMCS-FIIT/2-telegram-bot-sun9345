@@ -40,6 +40,12 @@ namespace MusicDiaryBot
         {
             string filePath = GetFilePath(chatId);
 
+            bool isDuplicate = GetTracks(chatId).Any(t =>   // проверка на дубликаты 
+                string.Equals(t.Artistname, track.Artistname, StringComparison.OrdinalIgnoreCase) && 
+                string.Equals(t.Songtitle, track.Songtitle, StringComparison.OrdinalIgnoreCase));
+
+            if (isDuplicate) return;
+
             if (!File.Exists(filePath))
                 File.WriteAllText(filePath, "Artist,Title\n");
 
