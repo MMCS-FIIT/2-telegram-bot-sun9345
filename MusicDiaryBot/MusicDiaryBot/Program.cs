@@ -10,6 +10,8 @@ namespace MusicDiaryBot
         static TelegramBotClient botClient = new TelegramBotClient("8444705053:AAHtL9xr7Fu3P-XvOx-lzx4REHh8g0sOBxM");
 
         static Dictionary<long, UserState> userStates = new Dictionary<long, UserState>(); // словарь с состояниями всех активных пользователей
+        
+        static LibraryService libraryService = new LibraryService(); // обьект для работы с библиотекой
 
         static async Task Main(string[] args)
         {
@@ -77,6 +79,23 @@ namespace MusicDiaryBot
                         cancellationToken: ct);
                     break;
 
+                case "/list":
+                    var tracks = libraryService.GetTracks(chatId);
+
+                    if (tracks.Count == 0)
+                    {
+                        await client.SendMessage(chatId,
+                            "Библиотека музыки еще пуста :p\n"
+                            + "Добавь треки через /add",
+                            cancellationToken: ct);
+                        break;
+                    }
+                    string list = "--- Библиотека музыки ---\n\n";
+                    foreach (var track in tracks)
+                        list += track.ToStringForWrite() + '\n';
+                    await client.SendMessage(chatId, list, cancellationToken: ct);
+                    break;
+
                 default:
                     await client.SendMessage(chatId,
                         "Нет такой команды:(\n\n" +
@@ -101,6 +120,8 @@ namespace MusicDiaryBot
                 case DialogState.AwaitingSongtitle:
                     state.Songtitle = text;
                     state.State = DialogState.None;
+
+                    libraryService.AddTrack(chatId, new TrackEntry(state.Artistname, state.Songtitle));
 
                     await client.SendMessage(chatId,
                         $"✅ Трек добавлен!\n\n" +
