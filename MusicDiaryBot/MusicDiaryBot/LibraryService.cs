@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -51,6 +52,21 @@ namespace MusicDiaryBot
 
             string line = $"\"{track.Artistname}\",\"{track.Songtitle}\"\n"; // запись в .csv с кавычками чтобы не сломалось если запятые в назвнияъ
             File.AppendAllText(filePath, line);
+        }
+
+        public bool DeleteTrack(long chatId, int index)
+        {
+            var tracks = GetTracks(chatId);
+
+            if (index < 1 || index > tracks.Count) return false;
+
+            tracks.RemoveAt(index - 1); // удаляем из списка
+
+            string filePath = GetFilePath(chatId); // перезаписываем полностью весь .csv 
+            File.WriteAllText(filePath, "Artist,Title\n");
+            foreach (var track in tracks)
+                File.AppendAllText(filePath, $"\"{track.Artistname}\",\"{track.Songtitle}\"\n");
+            return true;
         }
 
         public List<TrackEntry> GetTracks(long chatId)

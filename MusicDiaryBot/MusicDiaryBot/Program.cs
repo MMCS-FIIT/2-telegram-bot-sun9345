@@ -80,6 +80,7 @@ namespace MusicDiaryBot
                             "/add — добавить трек в библиотеку\n" +
                             "/list — посмотреть свою библиотеку\n" +
                             "/recommend — получить рекомендации\n" +
+                            "/delete [index] — удалить трек с номером [index] из библиотеки\n" +
                             "/help — список команд",
                             cancellationToken: ct);
                         break;
@@ -103,8 +104,8 @@ namespace MusicDiaryBot
                             break;
                         }
                         string list = "--- Библиотека музыки ---\n\n";
-                        foreach (var track in tracks)
-                            list += track.ToStringForWrite() + '\n';
+                        for (int i = 0; i < tracks.Count; i++)
+                            list += $"#{i+1}. " + tracks[i].ToStringForWrite() + '\n';
                         await client.SendMessage(chatId, list, cancellationToken: ct);
                         break;
 
@@ -134,6 +135,37 @@ namespace MusicDiaryBot
 
                         await client.SendMessage(chatId, recommendations, cancellationToken: ct);
                         break;
+
+                    case string s when s.StartsWith("/delete"):
+                        var parts = text.Split(' ');
+
+                        if (parts.Length < 2 || !int.TryParse(parts[1], out int trackNumber))
+                        {
+                            await client.SendMessage(chatId,
+                                "Укажи номер трека для удаления\n" +
+                                "Например: /delete 3\n\n" +
+                                "Посмотреть номера треков: /list",
+                                cancellationToken: ct);
+                            break;
+                        }
+
+                        bool removed = libraryService.DeleteTrack(chatId, trackNumber);
+
+                        if (removed)
+                        {
+                            await client.SendMessage(chatId,
+                                $"Трек #{trackNumber} удалён из библиотеки",
+                                cancellationToken: ct);
+                        }
+                        else
+                        {
+                            await client.SendMessage(chatId,
+                                $"Трека с номером {trackNumber} не существует\n" +
+                                "Посмотреть список треков: /list",
+                                cancellationToken: ct);
+                        }
+                        break;
+
 
                     default:
                         await client.SendMessage(chatId,
