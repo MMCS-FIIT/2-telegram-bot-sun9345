@@ -12,6 +12,7 @@ namespace MusicDiaryBot
         static Dictionary<long, UserState> userStates = new Dictionary<long, UserState>(); // словарь с состояниями всех активных пользователей
         
         static LibraryService libraryService = new LibraryService(); // обьект для работы с библиотекой
+        static LastFmService lastFmService = new LastFmService(); // обьект для работы с lastfm
 
         static async Task Main(string[] args)
         {
@@ -45,65 +46,105 @@ namespace MusicDiaryBot
 
             UserState state = userStates[chatId]; // текущее состояние
 
-            if (state.State != DialogState.None) // если в процессе добавления трека
+            try
             {
-                await HandleAddDialog(client, chatId, text, state, ct);
-                return;
-            }
+                if (state.State != DialogState.None) // если в процессе добавления трека
+                {
+                    await HandleAddDialog(client, chatId, text, state, ct);
+                    return;
+                }
 
-            switch (text)
-            {
-                case "/start":
-                    await client.SendMessage(chatId,
-                        "--- Добро пожаловать в Музыкальный дневник! ---\n\n" +
-                        "Ты можешь добавить свои любимые треки в библиотеку, чтобы получать рекомендации.\n\n" +
-                        "/help чтобы увидеть список команд.",
-                        cancellationToken: ct);
-                    break;
-
-                case "/help":
-                    await client.SendMessage(chatId,
-                        "--- Список команд: ---\n\n" +
-                        "/add — добавить трек в библиотеку\n" +
-                        "/list — посмотреть свою библиотеку\n" +
-                        "/recommend — получить рекомендации\n" +
-                        "/help — список команд",
-                        cancellationToken: ct);
-                    break;
-
-                case "/add":
-                    state.State = DialogState.AwaitingArtistname; // перевод в режим диалога 
-                    await client.SendMessage(chatId,
-                        "Введи имя исполнителя:",
-                        cancellationToken: ct);
-                    break;
-
-                case "/list":
-                    var tracks = libraryService.GetTracks(chatId);
-
-                    if (tracks.Count == 0)
-                    {
+                switch (text)
+                {
+                    case "/start":
                         await client.SendMessage(chatId,
-                            "Библиотека музыки еще пуста :p\n"
-                            + "Добавь треки через /add",
+                            "--- Добро пожаловать в Музыкальный дневник! ---\n\n" +
+                            "Ты можешь добавить свои любимые треки в библиотеку, чтобы получать рекомендации.\n\n" +
+                            "/help чтобы увидеть список команд.",
                             cancellationToken: ct);
                         break;
-                    }
-                    string list = "--- Библиотека музыки ---\n\n";
-                    foreach (var track in tracks)
-                        list += track.ToStringForWrite() + '\n';
-                    await client.SendMessage(chatId, list, cancellationToken: ct);
-                    break;
 
-                default:
-                    await client.SendMessage(chatId,
-                        "Нет такой команды:(\n\n" +
-                        "Напиши /help чтобы увидеть список доступных команд.",
-                        cancellationToken: ct);
-                    break;
+                    case "/help":
+                        await client.SendMessage(chatId,
+                            "--- Список команд: ---\n\n" +
+                            "/add — добавить трек в библиотеку\n" +
+                            "/list — посмотреть свою библиотеку\n" +
+                            "/recommend — получить рекомендации\n" +
+                            "/help — список команд",
+                            cancellationToken: ct);
+                        break;
+
+                    case "/add":
+                        state.State = DialogState.AwaitingArtistname; // перевод в режим диалога 
+                        await client.SendMessage(chatId,
+                            "Введи имя исполнителя:",
+                            cancellationToken: ct);
+                        break;
+
+                    case "/list":
+                        var tracks = libraryService.GetTracks(chatId);
+
+                        if (tracks.Count == 0)
+                        {
+                            await client.SendMessage(chatId,
+                                "Библиотека музыки еще пуста :p\n"
+                                + "Добавь треки через /add",
+                                cancellationToken: ct);
+                            break;
+                        }
+                        string list = "--- Библиотека музыки ---\n\n";
+                        foreach (var track in tracks)
+                            list += track.ToStringForWrite() + '\n';
+                        await client.SendMessage(chatId, list, cancellationToken: ct);
+                        break;
+
+                    case "/recommend":
+                        var allTracks = libraryService.GetTracks(chatId);
+
+                        if (allTracks.Count == 0)
+                        {
+                            await client.SendMessage(chatId, "Библиотека пуста :p\nДобавь треки через /add", cancellationToken: ct);
+                            break;
+                        }
+
+                        Random r = new Random();
+                        var randomTrack = allTracks[r.Next(allTracks.Count)];
+
+
+                        var similarArtists = await lastFmService.GetSimilarArtistsAsync(randomTrack.Artistname);
+
+                        if (similarArtists.Count == 0)
+                        {
+                            await client.SendMessage(chatId, $"К сожалению, найти похожих на {randomTrack.Artistname} исполнителей не удолось...", cancellationToken: ct);
+                            break;
+                        }
+                        string recommendations = $"Тебе может понравиться, если слушаешь {randomTrack.Artistname}:\n\n";
+                        for (int i = 0; i < similarArtists.Count; i++)
+                            recommendations += $"{i + 1}. {similarArtists[i]}\n";
+
+                        await client.SendMessage(chatId, recommendations, cancellationToken: ct);
+                        break;
+
+                    default:
+                        await client.SendMessage(chatId,
+                            "Нет такой команды:(\n\n" +
+                            "Напиши /help чтобы увидеть список доступных команд.",
+                            cancellationToken: ct);
+                        break;
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+
+                await client.SendMessage(chatId,
+                    "Произошла ошибка. Пожалуйста, попробуй ещё раз",
+                    cancellationToken: ct);
+
+                if (userStates.ContainsKey(chatId))
+                    userStates[chatId].State = DialogState.None;
             }
         }
-
         static async Task HandleAddDialog(ITelegramBotClient client, long chatId, string text, UserState state, CancellationToken ct)
         {
             switch (state.State)
